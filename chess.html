@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess PGN to Mind Map Converter</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
+            min-height: 100vh;
+            padding: 20px;
+            color: #fff;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        
+        header {
+            text-align: center;
+            padding: 20px 0;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .content {
+            display: flex;
+            flex: 1;
+            gap: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        .input-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .output-section {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        textarea {
+            width: 100%;
+            height: 300px;
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid #5d8aa8;
+            background: rgba(0, 0, 0, 0.3);
+            color: #fff;
+            font-size: 1rem;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #ffd700;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin: 15px 0;
+        }
+        
+        button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(to right, #5d8aa8, #1e3c72);
+            color: white;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+        
+        button:hover {
+            background: linear-gradient(to right, #6f9dbf, #2a5298);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .example {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+        
+        .example h3 {
+            margin-bottom: 10px;
+            color: #ffd700;
+        }
+        
+        .example p {
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        
+        .mind-map-container {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            position: relative;
+            overflow: auto;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        #mind-map {
+            width: 100%;
+            height: 100%;
+            min-height: 500px;
+        }
+        
+        .node {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            background: linear-gradient(135deg, #5d8aa8, #1e3c72);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+            border: 2px solid #ffd700;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            z-index: 10;
+        }
+        
+        .node:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5);
+            z-index: 20;
+        }
+        
+        .node.root {
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, #ffd700, #ff8c00);
+            font-size: 1.2rem;
+        }
+        
+        .node.variation {
+            background: linear-gradient(135deg, #b21f1f, #6a0d0d);
+        }
+        
+        .node.main {
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+        }
+        
+        .error {
+            color: #ff6b6b;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 5px;
+            background: rgba(255, 0, 0, 0.1);
+            display: none;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            margin-top: 20px;
+            opacity: 0.8;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+            .content {
+                flex-direction: column;
+            }
+            
+            .mind-map-container {
+                min-height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Chess PGN to Mind Map Converter</h1>
+            <p class="subtitle">Visualize chess games as interactive mind maps. Paste your PGN and see the game structure unfold.</p>
+        </header>
+        
+        <div class="content">
+            <div class="input-section">
+                <h2 class="section-title">Input PGN</h2>
+                <textarea id="pgn-input" placeholder="Paste your PGN here...">[Event "F/S Return Match"]
+[Site "Belgrade, Serbia JUG"]
+[Date "1992.11.04"]
+[Round "29"]
+[White "Fischer, Robert J."]
+[Black "Spassky, Boris V."]
+[Result "1/2-1/2"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 
+O-O 9. h3 Nb8 10. d4 Nbd7 11. c4 c6 12. cxb5 axb5 13. Nc3 Bb7 14. Bg5 b4 15. Nb1 
+h6 16. Bh4 c5 17. dxe5 Nxe4 18. Bxe7 Qxe7 19. exd6 Qf6 20. Nbd2 Nxd6 21. Nc4 Nxc4 
+22. Bxc4 Nb6 23. Ne5 Rae8 24. Bxf7+ Rxf7 25. Nxf7 Rxe1+ 26. Qxe1 Kxf7 27. Qe3 Qg5 
+28. Qxg5 hxg5 29. b3 Ke6 30. a3 Kd6 31. axb4 cxb4 32. Ra5 Nd5 33. f3 Bc8 34. Kf2 
+Bf5 35. Ra7 g6 36. Ra6+ Kc5 37. Ke1 Nf4 38. g3 Nxh3 39. Kd2 Kb5 40. Rd6 Kc5 41. Ra6
+Nf2 42. g4 Bd3 43. Re6 1/2-1/2</textarea>
+                
+                <div class="controls">
+                    <button id="convert-btn">Convert to Mind Map</button>
+                    <button id="example-btn">Load Example</button>
+                    <button id="clear-btn">Clear</button>
+                </div>
+                
+                <div id="error-message" class="error"></div>
+                
+                <div class="example">
+                    <h3>About PGN Format</h3>
+                    <p>PGN (Portable Game Notation) is a standard format for recording chess games. The converter supports:</p>
+                    <ul>
+                        <li>Standard move notation (e.g., e4, Nf3, O-O)</li>
+                        <li>Variations enclosed in parentheses</li>
+                        <li>Move numbers and annotations</li>
+                    </ul>
+                    <p>Header information (inside square brackets) is automatically ignored during parsing.</p>
+                </div>
+            </div>
+            
+            <div class="output-section">
+                <h2 class="section-title">Chess Mind Map</h2>
+                <div class="mind-map-container">
+                    <svg id="mind-map"></svg>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Chess PGN to Mind Map Converter | Visualize your chess games in a new way</p>
+        </footer>
+    </div>
+
+    <script>
+        // DOM elements
+        const pgnInput = document.getElementById('pgn-input');
+        const convertBtn = document.getElementById('convert-btn');
+        const exampleBtn = document.getElementById('example-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const mindMapSvg = document.getElementById('mind-map');
+        const errorMessage = document.getElementById('error-message');
+        
+        // Example PGNs
+        const examples = [
+            `[Event "Fischer vs Spassky"]
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 O-O 
+(7... d6 8. c3 Na5 9. Bc2 c5 10. d4 Qc7) 8. c3 d5 9. exd5 Nxd5 10. Nxe5 Nxe5 11. Rxe5`,
+
+            `[Event "Italian Game"]
+1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. c3 Nf6 5. d4 exd4 6. cxd4 Bb4+ 7. Nc3 
+(7. Bd2 Bxd2+ 8. Nbxd2 d5 9. exd5 Nxd5 10. Qb3 Nce7) 
+(7. Nc3 Nxe4 8. O-O Bxc3 9. d5 Bf6 10. Re1 Ne7 11. Rxe4 d6) 7... Nxe4 8. O-O Bxc3 9. d5 Bf6 10. Re1 Ne7 11. Rxe4 d6 12. Bg5 Bxg5 13. Nxg5 h6 14. Qe2 hxg5 15. Re1`
+        ];
+
+        // Initialize with first example
+        pgnInput.value = examples[0];
+        
+        // Event listeners
+        convertBtn.addEventListener('click', convertPGN);
+        exampleBtn.addEventListener('click', loadExample);
+        clearBtn.addEventListener('click', clearAll);
+        
+        // Load a random example
+        function loadExample() {
+            const randomIndex = Math.floor(Math.random() * examples.length);
+            pgnInput.value = examples[randomIndex];
+            convertPGN();
+        }
+        
+        // Clear input and mind map
+        function clearAll() {
+            pgnInput.value = '';
+            clearMindMap();
+            errorMessage.style.display = 'none';
+        }
+        
+        // Clear the mind map
+        function clearMindMap() {
+            mindMapSvg.innerHTML = '';
+        }
+        
+        // Main conversion function
+        function convertPGN() {
+            // Clear previous results
+            clearMindMap();
+            errorMessage.style.display = 'none';
+            
+            // Get and validate input
+            const pgnText = pgnInput.value.trim();
+            if (!pgnText) {
+                showError('Please enter a PGN string');
+                return;
+            }
+            
+            try {
+                // Parse PGN and build the move tree
+                const moveTree = parsePGN(pgnText);
+                
+                // Calculate layout positions
+                const positionedTree = calculateLayout(moveTree);
+                
+                // Render the mind map
+                renderMindMap(positionedTree);
+            } catch (error) {
+                showError(`Error: ${error.message}`);
+            }
+        }
+        
+        // Display error message
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+        }
+        
+        // Parse PGN and build move tree
+        function parsePGN(pgnText) {
+            // Remove PGN headers (metadata in square brackets)
+            const withoutHeaders = pgnText.replace(/\[.*?\]/g, '');
+            
+            // Remove comments and annotations
+            const withoutComments = withoutHeaders
+                .replace(/\{.*?\}/g, '') // Remove {comments}
+                .replace(/\?|\!|\$[0-9]+/g, ''); // Remove move annotations
+            
+            // Split into tokens
+            const tokens = withoutComments
+                .split(/\s+/)
+                .filter(token => token && token !== '' && token !== '*');
+            
+            // Create root node
+            const root = {
+                move: 'Game',
+                isRoot: true,
+                children: [],
+                variations: []
+            };
+            
+            // Stack to track variations
+            const stack = [{ node: root, currentLine: root.children }];
+            let currentParent = root;
+            let currentLine = root.children;
+            let moveCount = 0;
+            
+            for (const token of tokens) {
+                if (token === '(') {
+                    // Start a new variation
+                    stack.push({ 
+                        node: currentParent, 
+                        currentLine: currentLine 
+                    });
+                    currentLine = [];
+                } else if (token === ')') {
+                    // End of variation
+                    const parentState = stack.pop();
+                    if (stack.length === 0) {
+                        throw new Error('Mismatched parentheses in PGN');
+                    }
+                    
+                    // Add the variation to parent node
+                    if (currentLine.length > 0) {
+                        parentState.node.variations.push(currentLine);
+                    }
+                    
+                    // Restore previous state
+                    currentParent = stack[stack.length - 1].node;
+                    currentLine = stack[stack.length - 1].currentLine;
+                } else if (token.match(/^\d+\.(\.\.)?$/)) {
+                    // Move number - skip
+                    continue;
+                } else {
+                    // Chess move
+                    const moveNode = {
+                        move: token,
+                        moveNumber: ++moveCount,
+                        children: [],
+                        variations: []
+                    };
+                    
+                    // Add to current line
+                    currentLine.push(moveNode);
+                    
+                    // Set as new parent for subsequent moves
+                    currentParent = moveNode;
+                    stack[stack.length - 1].currentLine = moveNode.children;
+                    currentLine = moveNode.children;
+                }
+            }
+            
+            // Handle any unclosed variations
+            while (stack.length > 1) {
+                const parentState = stack.pop();
+                if (currentLine.length > 0) {
+                    parentState.node.variations.push(currentLine);
+                }
+                currentLine = parentState.currentLine;
+            }
+            
+            return root;
+        }
+        
+        // Calculate positions for nodes
+        function calculateLayout(root) {
+            // Layout constants
+            const HORIZONTAL_SPACING = 120;
+            const VERTICAL_SPACING = 80;
+            const VARIATION_ANGLE = Math.PI / 4; // 45 degrees
+            
+            // Position root node at center
+            root.x = 0;
+            root.y = 0;
+            root.level = 0;
+            
+            // Recursive function to position nodes
+            function positionNode(node, parentX, parentY, angle, level) {
+                // Set position relative to parent
+                const x = parentX + Math.cos(angle) * HORIZONTAL_SPACING;
+                const y = parentY + Math.sin(angle) * VERTICAL_SPACING;
+                
+                // Update node properties
+                node.x = x;
+                node.y = y;
+                node.level = level;
+                node.angle = angle;
+                
+                // Position main line children
+                let childAngle = angle;
+                for (const child of node.children) {
+                    positionNode(child, x, y, childAngle, level + 1);
+                }
+                
+                // Position variations
+                let variationAngle = angle - VARIATION_ANGLE;
+                const angleStep = (2 * VARIATION_ANGLE) / Math.max(1, node.variations.length - 1);
+                
+                for (const variation of node.variations) {
+                    for (let i = 0; i < variation.length; i++) {
+                        const variationNode = variation[i];
+                        positionNode(variationNode, x, y, variationAngle, level + 1);
+                        
+                        // Subsequent nodes in variation follow the same angle
+                        variationAngle += angleStep;
+                    }
+                }
+            }
+            
+            // Position children of root
+            let angle = 0; // Right direction for main line
+            for (const child of root.children) {
+                positionNode(child, root.x, root.y, angle, 1);
+            }
+            
+            return root;
+        }
+        
+        // Render the mind map
+        function renderMindMap(root) {
+            // Clear previous SVG
+            mindMapSvg.innerHTML = '';
+            
+            // Get container dimensions
+            const container = mindMapSvg.parentElement;
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            
+            // Set SVG dimensions
+            mindMapSvg.setAttribute('width', width);
+            mindMapSvg.setAttribute('height', height);
+            
+            // Center the root node
+            const offsetX = width / 2;
+            const offsetY = height / 2;
+            
+            // Draw connections first (so nodes appear on top)
+            drawConnections(root, offsetX, offsetY);
+            
+            // Draw nodes
+            drawNode(root, offsetX, offsetY);
+        }
+        
+        // Recursively draw connections
+        function drawConnections(node, offsetX, offsetY, parentX = null, parentY = null) {
+            const x = offsetX + node.x;
+            const y = offsetY + node.y;
+            
+            // Draw line to parent if not root
+            if (parentX !== null && parentY !== null) {
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', parentX);
+                line.setAttribute('y1', parentY);
+                line.setAttribute('x2', x);
+                line.setAttribute('y2', y);
+                line.setAttribute('stroke', node.isRoot ? '#ffd700' : node.variations.length ? '#ff6b6b' : '#5d8aa8');
+                line.setAttribute('stroke-width', 2);
+                line.setAttribute('stroke-opacity', 0.7);
+                mindMapSvg.appendChild(line);
+            }
+            
+            // Draw connections to children
+            for (const child of node.children) {
+                drawConnections(child, offsetX, offsetY, x, y);
+            }
+            
+            // Draw connections to variations
+            for (const variation of node.variations) {
+                for (const variationNode of variation) {
+                    drawConnections(variationNode, offsetX, offsetY, x, y);
+                }
+            }
+        }
+        
+        // Draw a node and its children
+        function drawNode(node, offsetX, offsetY) {
+            const x = offsetX + node.x;
+            const y = offsetY + node.y;
+            
+            // Create node group
+            const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            group.setAttribute('transform', `translate(${x}, ${y})`);
+            
+            // Create circle
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('r', node.isRoot ? 30 : 22);
+            circle.setAttribute('fill', node.isRoot ? '#ff8c00' : node.variations.length ? '#b21f1f' : '#1e3c72');
+            circle.setAttribute('stroke', '#ffd700');
+            circle.setAttribute('stroke-width', 2);
+            circle.setAttribute('class', 'node');
+            group.appendChild(circle);
+   
